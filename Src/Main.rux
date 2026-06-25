@@ -1,20 +1,78 @@
 import Std::Io::PrintLine;
 
+struct sockaddr_in {
+    sin_family: uint16;
+    sin_port: uint16;
+    sin_addr: uint32;
+    sin_zero: [8]uint8;
+}
+
+extern "C" {
+    func socket(domain: int32, type: int32, protocol: int32) -> int32;
+    func connect(sockfd: int32, addr: *const sockaddr_in, addrlen: uint32) -> int32;
+    func close(fd: int32) -> int32;
+    func htons(hostshort: uint16) -> uint16;
+    func inet_addr(cp: *const char8) -> uint32;
+    func usleep(usec: uint32) -> int32; // <-- Native Linux microsecond sleep
+}
+
+const AF_INET: int32 = 2;
+const SOCK_STREAM: int32 = 1;
+
 struct ScanConfig {
     targetIp: *const char8;
     startPort: int32;
     endPort: int32;
 }
 
+func ScanPort(targetIp: *const char8, port: int32) -> bool {
+    let sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if sockfd < 0 {
+        return false;
+    }
+
+    let mut addr = sockaddr_in {
+        sin_family: AF_INET as uint16,
+        sin_port: htons(port as uint16),
+        sin_addr: inet_addr(targetIp),
+        sin_zero: [0, 0, 0, 0, 0, 0, 0, 0]
+    };
+
+    let result = connect(sockfd, &addr, 16);
+    close(sockfd);
+
+    return result == 0;
+}
+
 func Main() -> int {
-    PrintLine("[+] Initializing Blazing-Fast Rux Port Scanner...");
+    PrintLine("[+] Initializing Safe Rux Port Scanner...");
     
     let config = ScanConfig {
         targetIp: "127.0.0.1" as *const char8,
         startPort: 20,
-        endPort: 1024
+        endPort: 120 // <-- Let's test a smaller range first to verify stability
     };
 
-    PrintLine("[*] Targeting Host across ports {} to {}", config.startPort, config.endPort);
+    PrintLine("[*] Targeting Host: 127.0.0.1");
+    PrintLine("------------------------------------------------");
+
+    let mut currentPort = config.startPort;
+
+    while currentPort <= config.endPort {
+        let isOpen = ScanPort(config.targetIp, currentPort);
+        
+        if isOpen {
+            PrintLine("[+] Port {} is OPEN", currentPort);
+        }
+        
+        currentPort = currentPort + 1;
+        
+        // Sleep for 2000 microseconds (2 milliseconds) between ports 
+        // This gives Linux time to reclaim sockets and flushes the VS Code logs safely
+        usleep(2000); 
+    }
+
+    PrintLine("------------------------------------------------");
+    PrintLine("[+] Scan complete safely.");
     return 0;
 }
