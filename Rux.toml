@@ -1,0 +1,11 @@
+[Package]
+Name    = "NetScanner"
+Version = "0.1.0"
+Type    = "bin"
+
+[Build]
+Output  = "Bin"
+
+[Dependencies]
+Std = "*"
+Linux = "*"
